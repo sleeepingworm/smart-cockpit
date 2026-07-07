@@ -1,0 +1,19 @@
+# Python虚拟环境
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+# 环境变量（含密码和API Key！绝对不能提交）
+.env
+# 用户上传的文件
+uploads/
+# AI模型权重（大文件，Day7后手动拷贝）
+ai/ai_models/*.pt
+ai/ai_models/*.bin
+ai/ai_models/*.onnx
+# IDE
+.vscode/
+.idea/
+# 系统文件
+Thumbs.db
+.DS_Store
