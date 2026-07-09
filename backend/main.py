@@ -1,11 +1,15 @@
+# main.py 顶部（import区域）
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
-
+# models/__init__.py
+# 必须import所有模型，SQLModel才能在create_all时建表
+#from models.vehicle import Vehicle, VehicleCreate, VehicleUpdate, VehicleResp
+import models   # ← 加这一行！确保所有模型在lifespan执行前就被import注册了
 from config.settings import settings
 from db.database import create_tables
-
+from api.vehicle import router as vehicles_router
 
 # ========== 应用生命周期 ==========
 @asynccontextmanager
@@ -25,13 +29,13 @@ async def lifespan(app: FastAPI):
     create_tables()
     print("[启动] 数据库表初始化完成")
 
-    # Day7之后才会加AI模型预热
+    # 🌟 Day7之后才会加AI模型预热
     print("[启动] 启动完成！")
-
-    yield  # <-- 应用运行期间停在这里
-
     print("[启动] 访问 http://localhost:8000/docs 查看接口文档")
     print("=" * 50)
+
+    yield   # <-- 应用运行期间停在这里
+
     # ========== 关闭时执行（今天没什么要清理的）==========
     print("[关闭] 服务已停止")
 
@@ -53,6 +57,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # ========== 测试接口 ==========
 @app.get("/health", tags=["系统"])
 def health_check():
@@ -73,19 +78,16 @@ def say_hello(name: str = "驾驶员"):
     }
 
 
-# ========== 后续每天新增路由在这里注册 ==========
-# Day2: from api.vehicles import router as vehicles_router
-# Day2: app.include_router(vehicles_router)
-# Day3: from api.auth import router as auth_router
-# Day3: from api.users import router as users_router
-# ...
+# ========== 路由注册 ==========
+app.include_router(vehicles_router)
+
 
 # ========== 启动入口 ==========
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "main:app",   # 指向本文件里的app对象
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
+        "main:app",          # 指向本文件里的app对象
+        host="0.0.0.0",      # 监听所有网卡（同局域网手机也能访问）
+        port=8000,           # 端口号
+        reload=True,         # 开发模式：代码改了自动重启
     )
