@@ -1,109 +1,58 @@
-from fastapi import APIRouter, Query
-from sqlmodel import Session, select
+from sqlmodel import SQLModel, Field
 from datetime import datetime
-from db.database import SessionDep   # 昨天写的：Annotated[Session, Depends(get_db)]
-from models.vehicle import Vehicle, VehicleCreate, VehicleUpdate, VehicleResp
-
-router = APIRouter(prefix="/vehicles", tags=["车辆管理"])
+from typing import Optional
 
 
-@router.get("/", response_model=dict)
-def list_vehicles(
-    db: SessionDep,                                                  # ⚠️ 无默认值的参数放前面！
-    page: int = Query(1, ge=1, description="页码，从1开始"),
-    size: int = Query(10, ge=1, le=100, description="每页条数"),
-):
-    """分页查询车辆列表"""
-    # 1. 查询总数
-    total = len(db.exec(select(Vehicle)).all())
+# ============= 数据库表模型 =============
+class Vehicle(SQLModel, table=True):
+    """车辆表"""
+    __tablename__ = "vehicles"
 
-    # 2. 分页查询
-    statement = select(Vehicle).offset((page - 1) * size).limit(size)
-    vehicles = db.exec(statement).all()
-
-    # 3. 转成Resp模型
-    data = [VehicleResp.model_validate(v) for v in vehicles]
-
-    return {
-        "code": 200,
-        "message": "查询成功",
-        "data": data,
-        "total": total,
-        "page": page,
-        "size": size,
-    }
+    id: int | None = Field(default=None, primary_key=True)
+    plate_number: str = Field(max_length=20, unique=True, nullable=False, description="车牌号")
+    brand: str = Field(max_length=50, nullable=False, description="品牌")
+    model: str = Field(max_length=50, nullable=False, description="型号")
+    color: str | None = Field(default=None, max_length=20, description="颜色")
+    owner: str | None = Field(default=None, max_length=50, description="车主")
+    owner_phone: str | None = Field(default=None, max_length=20, description="车主电话")
+    status: int = Field(default=1, description="状态：1正常 0停用")
+    created_at: datetime | None = Field(default_factory=datetime.now)
+    updated_at: datetime | None = Field(default_factory=datetime.now)
 
 
-@router.get("/{vehicle_id}", response_model=dict)
-def get_vehicle(vehicle_id: int, db: SessionDep):
-    """根据ID查单个车辆"""
-    vehicle = db.get(Vehicle, vehicle_id)
-    if not vehicle:
-        return {"code": 404, "message": f"车辆{vehicle_id}不存在", "data": None}
-    return {
-        "code": 200,
-        "message": "success",
-        "data": VehicleResp.model_validate(vehicle),
-    }
+# ============= 请求模型 =============
+class VehicleCreate(SQLModel):
+    """创建车辆时客户端需要传的字段"""
+    plate_number: str = Field(description="车牌号（7-20字符）", min_length=7, max_length=20)
+    brand: str = Field(description="品牌，如：比亚迪/特斯拉/大众", max_length=50)
+    model: str = Field(description="型号，如：汉EV/Model 3/速腾", max_length=50)
+    color: str | None = Field(default=None, description="颜色，如：珍珠白/星空黑", max_length=20)
+    owner: str | None = Field(default=None, description="车主姓名", max_length=50)
+    owner_phone: str | None = Field(default=None, description="车主联系电话", max_length=20)
+    status: int = Field(default=1, description="车辆状态：1=正常 0=停用")
 
 
-@router.post("/", response_model=dict, status_code=201)
-def create_vehicle(req: VehicleCreate, db: SessionDep):
-    """新建车辆"""
-    # 1. 检查车牌号是否已存在
-    exists = db.exec(
-        select(Vehicle).where(Vehicle.plate_number == req.plate_number)
-    ).first()
-    if exists:
-        return {"code": 400, "message": f"车牌号{req.plate_number}已存在", "data": None}
-
-    # 2. 创建对象
-    vehicle = Vehicle.model_validate(req)
-
-    # 3. 加入session + 提交
-    db.add(vehicle)
-    db.commit()
-    db.refresh(vehicle)   # refresh后拿到自动生成的id和created_at
-
-    return {
-        "code": 200,
-        "message": "创建成功",
-        "data": VehicleResp.model_validate(vehicle),
-    }
+class VehicleUpdate(SQLModel):
+    """更新车辆时所有字段可选（想改哪个传哪个）"""
+    plate_number: str | None = Field(default=None, description="车牌号", min_length=7, max_length=20)
+    brand: str | None = Field(default=None, description="品牌", max_length=50)
+    model: str | None = Field(default=None, description="型号", max_length=50)
+    color: str | None = Field(default=None, description="颜色", max_length=20)
+    owner: str | None = Field(default=None, description="车主", max_length=50)
+    owner_phone: str | None = Field(default=None, description="联系电话", max_length=20)
+    status: int | None = Field(default=None, description="状态：1=正常 0=停用")
 
 
-@router.put("/{vehicle_id}", response_model=dict)
-def update_vehicle(vehicle_id: int, req: VehicleUpdate, db: SessionDep):
-    """更新车辆信息"""
-    vehicle = db.get(Vehicle, vehicle_id)
-    if not vehicle:
-        return {"code": 404, "message": f"车辆{vehicle_id}不存在", "data": None}
-
-    # 只更新客户端传了的字段（排除None值）
-    update_data = req.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(vehicle, field, value)
-    vehicle.updated_at = datetime.now()
-
-    db.add(vehicle)
-    db.commit()
-    db.refresh(vehicle)
-
-    return {
-        "code": 200,
-        "message": "更新成功",
-        "data": VehicleResp.model_validate(vehicle),
-    }
-
-
-@router.delete("/{vehicle_id}", response_model=dict)
-def delete_vehicle(vehicle_id: int, db: SessionDep):
-    """删除车辆"""
-    vehicle = db.get(Vehicle, vehicle_id)
-    if not vehicle:
-        return {"code": 404, "message": f"车辆{vehicle_id}不存在", "data": None}
-
-    db.delete(vehicle)
-    db.commit()
-
-    return {"code": 200, "message": "删除成功", "data": None}
+# ============= 响应模型 =============
+class VehicleResp(SQLModel):
+    """返回给前端的车辆信息"""
+    id: int = Field(description="车辆ID")
+    plate_number: str = Field(description="车牌号")
+    brand: str = Field(description="品牌")
+    model: str = Field(description="型号")
+    color: str | None = Field(description="颜色")
+    owner: str | None = Field(description="车主")
+    owner_phone: str | None = Field(description="联系电话")
+    status: int = Field(description="状态：1=正常 0=停用")
+    created_at: datetime = Field(description="创建时间")
+    updated_at: datetime | None = Field(description="更新时间")
