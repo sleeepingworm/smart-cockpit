@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select
 from datetime import datetime
-from db.database import SessionDep   # 昨天写的：Annotated[Session, Depends(get_db)]
+from db.database import SessionDep
 from models.vehicle import Vehicle, VehicleCreate, VehicleUpdate, VehicleResp
+from core.security import get_current_user
 
-router = APIRouter(prefix="/vehicles", tags=["车辆管理"])
+router = APIRouter(
+    prefix="/vehicles",
+    tags=["车辆管理"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("/", response_model=dict)

@@ -3,18 +3,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
-# models/__init__.py
-# 必须import所有模型，SQLModel才能在create_all时建表
-#from models.vehicle import Vehicle, VehicleCreate, VehicleUpdate, VehicleResp
-import models   # ← 加这一行！确保所有模型在lifespan执行前就被import注册了
+import models
 from config.settings import settings
 from db.database import create_tables
-from api.vehicle import router as vehicles_router
 from api.auth import router as auth_router
 from api.vehicles import router as vehicles_router
 
-app.include_router(auth_router)
-app.include_router(vehicles_router)
 # ========== 应用生命周期 ==========
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,6 +56,10 @@ app.add_middleware(
 )
 
 
+# ========== 路由注册 ==========
+app.include_router(auth_router)
+app.include_router(vehicles_router)
+
 # ========== 测试接口 ==========
 @app.get("/health", tags=["系统"])
 def health_check():
@@ -80,10 +78,6 @@ def say_hello(name: str = "驾驶员"):
         "message": "success",
         "data": {"greeting": f"你好，{name}！欢迎来到智慧驾舱！"}
     }
-
-
-# ========== 路由注册 ==========
-app.include_router(vehicles_router)
 
 
 # ========== 启动入口 ==========
