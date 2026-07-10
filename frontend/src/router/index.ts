@@ -1,32 +1,38 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { ElMessage } from 'element-plus'
+import {ElMessage} from "element-plus";
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
       path: '/login',
       name: 'Login',
-      component: () => import('../views/LoginView.vue'),
-      meta: { public: true, title: '管理员登录' },   // public=true表示不需要登录
+      component: () => import('@/views/LoginView.vue'),
+      meta: { public: true, title: '管理员登录' },
     },
     {
       path: '/',
+      component: () => import('@/layouts/AdminLayout.vue'),
       redirect: '/dashboard',
+      children: [
+        {
+          path: 'dashboard',
+          name: 'Dashboard',
+          component: () => import('@/views/DashboardView.vue'),
+          meta: { title: '仪表盘' },
+        },
+        {
+          path: 'users',
+          name: 'Users',
+          component: () => import('@/views/UserListView.vue'),
+          meta: { title: '用户管理' },
+        },
+        // Day5车辆、人脸、告警路由后续加到这里
+        { path: 'vehicles', component: () => import('@/views/VehicleListView.vue'), meta: { title: '车辆管理' } },
+        { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
+      ],
     },
-    {
-      path: '/dashboard',
-      name: 'Dashboard',
-      component: () => import('../views/DashboardView.vue'),
-      meta: { title: '仪表盘' },
-    },
-    {
-      path: '/vehicles',
-      name: 'Vehicles',
-      component: () => import('../views/VehicleListView.vue'),
-      meta: { title: '车辆管理' },
-    },
-    { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
   ],
 })
 

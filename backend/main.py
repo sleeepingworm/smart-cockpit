@@ -7,7 +7,9 @@ import models
 from config.settings import settings
 from db.database import create_tables
 from api.auth import router as auth_router
+from api.user import router as users_router      # 新增
 from api.vehicles import router as vehicles_router
+
 
 # ========== 应用生命周期 ==========
 @asynccontextmanager
@@ -78,7 +80,9 @@ def say_hello(name: str = "驾驶员"):
         "message": "success",
         "data": {"greeting": f"你好，{name}！欢迎来到智慧驾舱！"}
     }
-
+app.include_router(auth_router)
+app.include_router(users_router)                  # 新增
+app.include_router(vehicles_router)
 
 # ========== 启动入口 ==========
 if __name__ == "__main__":

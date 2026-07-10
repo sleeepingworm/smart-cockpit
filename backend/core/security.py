@@ -14,7 +14,21 @@ from models.user import User
 
 bearer_scheme = HTTPBearer()
 
+from fastapi import Depends, HTTPException, status
 
+def require_role(roles: list[str]):
+    """
+    角色检查依赖工厂。用法：
+        @router.get("/", dependencies=[Depends(require_role(["admin"]))])
+    """
+    def role_checker(current_user: User = Depends(get_current_user)):
+        if current_user.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"需要 {' 或 '.join(roles)} 权限",
+            )
+        return current_user
+    return role_checker
 def hash_password(password: str) -> str:
     """
     密码哈希：生成随机salt，返回 'salt$sha256hex' 格式
