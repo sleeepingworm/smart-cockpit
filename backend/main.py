@@ -6,10 +6,12 @@ import os
 import models
 from config.settings import settings
 from db.database import create_tables
+from fastapi.staticfiles import StaticFiles
 from api.auth import router as auth_router
 from api.user import router as users_router      # 新增
 from api.vehicles import router as vehicles_router
 from api.faces import router as faces_router
+from api.alerts import router as alerts_router
 
 
 # ========== 应用生命周期 ==========
@@ -25,6 +27,8 @@ async def lifespan(app: FastAPI):
 
     # 确保上传目录存在
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    os.makedirs(os.path.join(settings.UPLOAD_DIR, "faces"), exist_ok=True)
+    os.makedirs(os.path.join(settings.UPLOAD_DIR, "voices"), exist_ok=True)
 
     # 创建数据库表（根据已import的模型自动建表）
     create_tables()
@@ -63,6 +67,10 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(vehicles_router)
 app.include_router(faces_router)
+app.include_router(alerts_router)
+
+# ========== 挂载静态文件目录 ==========
+app.mount("/static", StaticFiles(directory=settings.UPLOAD_DIR), name="static")
 
 # ========== 测试接口 ==========
 @app.get("/health", tags=["系统"])
@@ -86,6 +94,10 @@ app.include_router(auth_router)
 app.include_router(users_router)                  # 新增
 app.include_router(vehicles_router)
 app.include_router(faces_router)
+app.include_router(alerts_router)
+
+# ========== 挂载静态文件目录 ==========
+app.mount("/static", StaticFiles(directory=settings.UPLOAD_DIR), name="static")
 
 # ========== 启动入口 ==========
 if __name__ == "__main__":

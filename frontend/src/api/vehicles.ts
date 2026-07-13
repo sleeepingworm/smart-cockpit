@@ -24,15 +24,24 @@ export interface VehicleCreate {
   status?: number
 }
 
+export interface VehicleQuery {
+  page?: number
+  size?: number
+  keyword?: string
+  status?: number
+}
+
 // 统一导出API对象，按模块分组
 export const vehicleApi = {
-  getList: (page = 1, size = 10) =>
+  getList: (params: VehicleQuery) =>
     request.get<null, { code: number; data: Vehicle[]; total: number; message: string }>(
       '/vehicles/',
-      { params: { page, size } }     // query参数用params传，自动拼到URL上
+      { params }
     ),
   create: (data: VehicleCreate) =>
     request.post<null, { code: number; data: Vehicle; message: string }>('/vehicles/', data),
+  update: (id: number, data: Partial<VehicleCreate>) =>
+    request.put(`/vehicles/${id}`, data),
   remove: (id: number) =>
     request.delete(`/vehicles/${id}`),
 }

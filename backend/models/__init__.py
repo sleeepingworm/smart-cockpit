@@ -1,7 +1,7 @@
 # models/__init__.py
 # 必须import所有模型，SQLModel才能在create_all时建表
 from models.vehicle import Vehicle, VehicleCreate, VehicleUpdate, VehicleResp
-from models.alert import Alert, AlertCreate, AlertUpdate, AlertResp
+from models.alert import Alert, AlertCreate, AlertHandle, AlertResp
 from models.vehicle import Vehicle, VehicleCreate, VehicleUpdate, VehicleResp
 from models.user import User, UserCreate, UserLogin, UserResp, TokenResp
 from models.face_library import Face, FaceCreate, FaceResp

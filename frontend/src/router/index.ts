@@ -30,6 +30,8 @@ const router = createRouter({
         },
         // Day5车辆、人脸、告警路由后续加到这里
         { path: 'vehicles', component: () => import('@/views/VehicleListView.vue'), meta: { title: '车辆管理' } },
+        { path: 'faces', component: () => import('@/views/FaceListView.vue'), meta: { title: '人脸库' } },
+        { path: 'alerts', component: () => import('@/views/AlertListView.vue'), meta: { title: '告警管理' } },
         { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
       ],
     },
