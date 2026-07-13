@@ -7,7 +7,10 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import './style.css'
 import router from './router'    // 加这行
-
+import './style.css'
+import './styles/cockpit.css'   // ← 新增
+import 'element-plus/dist/index.css'
+// ...
 const app = createApp(App)
 const pinia = createPinia()
 

@@ -8,11 +8,14 @@ from config.settings import settings
 from db.database import create_tables
 from fastapi.staticfiles import StaticFiles
 from api.auth import router as auth_router
-from api.user import router as users_router      # 新增
+from api.user import router as users_router
 from api.vehicles import router as vehicles_router
 from api.faces import router as faces_router
 from api.alerts import router as alerts_router
-
+from ai.face_recognition import warm_up as face_warm_up
+from sqlmodel import Session, select
+from models.face_library import Face
+from db.database import engine
 
 # ========== 应用生命周期 ==========
 @asynccontextmanager
@@ -34,15 +37,26 @@ async def lifespan(app: FastAPI):
     create_tables()
     print("[启动] 数据库表初始化完成")
 
-    # 🌟 Day7之后才会加AI模型预热
+    # 人脸识别模型预热
+    try:
+        with Session(engine) as session:
+            first_face = session.exec(
+                select(Face).where(Face.is_active == True, Face.is_deleted == False).limit(1)
+            ).first()
+        sample = os.path.join(settings.UPLOAD_DIR, first_face.file_path) if first_face else None
+        face_warm_up(sample)
+    except Exception as e:
+        print(f"[启动] 人脸模型预热失败（不阻塞启动）：{e}")
+
     print("[启动] 启动完成！")
     print("[启动] 访问 http://localhost:8000/docs 查看接口文档")
     print("=" * 50)
 
     yield   # <-- 应用运行期间停在这里
 
-    # ========== 关闭时执行（今天没什么要清理的）==========
+    # ========== 关闭时执行 ==========
     print("[关闭] 服务已停止")
+
 
 
 # ========== 创建FastAPI应用实例 ==========
@@ -65,12 +79,10 @@ app.add_middleware(
 
 # ========== 路由注册 ==========
 app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(vehicles_router)
 app.include_router(faces_router)
 app.include_router(alerts_router)
-
-# ========== 挂载静态文件目录 ==========
-app.mount("/static", StaticFiles(directory=settings.UPLOAD_DIR), name="static")
 
 # ========== 测试接口 ==========
 @app.get("/health", tags=["系统"])
@@ -90,11 +102,6 @@ def say_hello(name: str = "驾驶员"):
         "message": "success",
         "data": {"greeting": f"你好，{name}！欢迎来到智慧驾舱！"}
     }
-app.include_router(auth_router)
-app.include_router(users_router)                  # 新增
-app.include_router(vehicles_router)
-app.include_router(faces_router)
-app.include_router(alerts_router)
 
 # ========== 挂载静态文件目录 ==========
 app.mount("/static", StaticFiles(directory=settings.UPLOAD_DIR), name="static")

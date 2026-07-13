@@ -1,11 +1,10 @@
 {
-  "extends": "@vue/tsconfig/tsconfig.dom.json",   // 或类似的extends
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     }
-    // ...其他已有配置保持不动（composite、target、strict等）
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
 }

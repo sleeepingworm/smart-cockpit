@@ -1,22 +1,28 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import router from '@/router'
 import { useUserStore } from '@/stores/user'
+import { useDriverStore } from '@/stores/driver'
+import router from '@/router'
+
 const request = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: 'http://127.0.0.1:8000',
   timeout: 10000,
 })
 
-// 请求拦截器：自动加Authorization头
+// 请求拦截：根据当前路由前缀选择 token
 request.interceptors.request.use((config) => {
-  const userStore = useUserStore()
-  if (userStore.token) {
-    config.headers.Authorization = `Bearer ${userStore.token}`
+  const isCockpit = window.location.pathname.startsWith('/cockpit')
+  if (isCockpit) {
+    const driver = useDriverStore()
+    if (driver.token) config.headers.Authorization = `Bearer ${driver.token}`
+  } else {
+    const admin = useUserStore()
+    if (admin.token) config.headers.Authorization = `Bearer ${admin.token}`
   }
   return config
 })
 
-// 响应拦截器：统一处理错误
+// 响应拦截：与之前一致，但 401 时区分跳哪个登录页
 request.interceptors.response.use(
   (res) => {
     const body = res.data
@@ -27,13 +33,17 @@ request.interceptors.response.use(
     return body
   },
   (err) => {
-    // HTTP状态码错误（网络错误/401/403/404/500等）
+    const isCockpit = window.location.pathname.startsWith('/cockpit')
     if (err.response?.status === 401) {
-      // token失效/未登录：清除登录态，跳登录页
-      const userStore = useUserStore()
-      userStore.logout()
-      ElMessage.error('登录已过期，请重新登录')
-      router.push('/login')
+      if (isCockpit) {
+        useDriverStore().logout()
+        ElMessage.error('登录已过期，请重新刷脸')
+        router.push('/cockpit/login')
+      } else {
+        useUserStore().logout()
+        ElMessage.error('登录已过期，请重新登录')
+        router.push('/login')
+      }
     } else if (err.response?.status === 403) {
       ElMessage.error('没有权限执行此操作')
     } else if (err.response?.status >= 500) {

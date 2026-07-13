@@ -1,0 +1,61 @@
+.cockpit-root {
+  --ck-bg-primary:    #0a1128;
+  --ck-bg-panel:      #131a35;
+  --ck-bg-elevated:   #1c2547;
+  --ck-border:        #2d3556;
+  --ck-text-primary:  #eef2ff;
+  --ck-text-secondary:#8b95c9;
+  --ck-accent:        #4e7cff;
+  --ck-accent-glow:   #7c5cff;
+  --ck-danger:        #ff6b6b;
+  --ck-success:       #4ade80;
+
+  background: linear-gradient(135deg, var(--ck-bg-primary) 0%, #0f1a3a 100%);
+  color: var(--ck-text-primary);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Element Plus 覆盖 —— 仅在 .cockpit-root 内生效，管理后台不受影响 */
+.cockpit-root .el-button--primary {
+  background: linear-gradient(135deg, var(--ck-accent), var(--ck-accent-glow));
+  border: none;
+  color: #fff;
+}
+.cockpit-root .el-button--primary:hover {
+  filter: brightness(1.1);
+}
+.cockpit-root .el-button {
+  border-radius: 8px;
+}
+.cockpit-root .el-card {
+  background: var(--ck-bg-panel);
+  border-color: var(--ck-border);
+  color: var(--ck-text-primary);
+}
+.cockpit-root .el-card__header {
+  border-bottom-color: var(--ck-border);
+  color: var(--ck-text-primary);
+}
+.cockpit-root .el-input__wrapper {
+  background: var(--ck-bg-elevated);
+  box-shadow: 0 0 0 1px var(--ck-border) inset;
+}
+.cockpit-root .el-input__inner {
+  color: var(--ck-text-primary);
+}
+.cockpit-root .el-dialog {
+  background: var(--ck-bg-panel);
+  color: var(--ck-text-primary);
+  border: 1px solid var(--ck-border);
+}
+.cockpit-root .el-dialog__title,
+.cockpit-root .el-dialog__body {
+  color: var(--ck-text-primary);
+}
+.cockpit-root .el-dialog__headerbtn .el-dialog__close {
+  color: var(--ck-text-secondary);
+}
+.cockpit-root .el-form-item__label {
+  color: var(--ck-text-secondary);
+}
