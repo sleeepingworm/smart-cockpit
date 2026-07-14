@@ -16,7 +16,9 @@ from ai.face_recognition import warm_up as face_warm_up
 from sqlmodel import Session, select
 from models.face_library import Face
 from db.database import engine
-
+from api.amap import router as amap_router
+from api.weather import router as weather_router
+from api.sensor import router as sensor_router, start_sensor_manager, stop_sensor_manager
 # ========== 应用生命周期 ==========
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,7 +39,7 @@ async def lifespan(app: FastAPI):
     create_tables()
     print("[启动] 数据库表初始化完成")
 
-    # 人脸识别模型预热
+    # 人脸识别模型预热（Day7）
     try:
         with Session(engine) as session:
             first_face = session.exec(
@@ -48,6 +50,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[启动] 人脸模型预热失败（不阻塞启动）：{e}")
 
+    # 启动传感器管理器（Day8）
+    start_sensor_manager()
+
     print("[启动] 启动完成！")
     print("[启动] 访问 http://localhost:8000/docs 查看接口文档")
     print("=" * 50)
@@ -55,9 +60,8 @@ async def lifespan(app: FastAPI):
     yield   # <-- 应用运行期间停在这里
 
     # ========== 关闭时执行 ==========
+    stop_sensor_manager()
     print("[关闭] 服务已停止")
-
-
 
 # ========== 创建FastAPI应用实例 ==========
 app = FastAPI(
@@ -105,7 +109,10 @@ def say_hello(name: str = "驾驶员"):
 
 # ========== 挂载静态文件目录 ==========
 app.mount("/static", StaticFiles(directory=settings.UPLOAD_DIR), name="static")
-
+# 注册新路由
+app.include_router(amap_router)
+app.include_router(weather_router)
+app.include_router(sensor_router)
 # ========== 启动入口 ==========
 if __name__ == "__main__":
     import uvicorn

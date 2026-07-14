@@ -4,6 +4,18 @@ from typing import List
 
 
 class Settings(BaseSettings):
+    # ...已有配置...
+
+    # 第三方 API
+    AMAP_KEY: str = ""
+
+    # 传感器
+    SENSOR_ENABLED: bool = False
+    SENSOR_PORT: str = "COM3"
+    SENSOR_BAUDRATE: int = 115200
+    SENSOR_READ_INTERVAL: float = 0.05     # 串口读间隔
+    SENSOR_DATA_TTL: int = 5               # 数据过期秒数
+    SENSOR_MOCK_ENABLED_FALLBACK: bool = True
     """应用配置 - 从 .env 文件和环境变量自动读取"""
 
     model_config = SettingsConfigDict(
