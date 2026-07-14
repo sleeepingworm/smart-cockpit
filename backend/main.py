@@ -19,6 +19,8 @@ from db.database import engine
 from api.amap import router as amap_router
 from api.weather import router as weather_router
 from api.sensor import router as sensor_router, start_sensor_manager, stop_sensor_manager
+from api.fatigue import router as fatigue_router
+from ai.fatigue_detection import warm_up as fatigue_warm_up
 # ========== 应用生命周期 ==========
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,7 +31,13 @@ async def lifespan(app: FastAPI):
     # ========== 启动时执行 ==========
     print("=" * 50)
     print("[启动] 智慧驾舱AI API 正在启动...")
+    try:
+        fatigue_warm_up()
+        print("[启动] 疲劳检测模型预热完成")
+    except Exception as e:
+        print(f"[启动] 疲劳检测预热失败（不阻塞）: {e}")
 
+    app.include_router(fatigue_router)
     # 确保上传目录存在
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "faces"), exist_ok=True)

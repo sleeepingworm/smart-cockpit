@@ -6,6 +6,15 @@ from typing import List
 class Settings(BaseSettings):
     # ...已有配置...
 
+    # ============ Day9: 疲劳检测阈值 ============
+    FATIGUE_EAR_THRESHOLD: float = 0.22    # EAR 闭眼判定阈值
+    FATIGUE_MAR_THRESHOLD: float = 0.60    # MAR 张嘴阈值
+    FATIGUE_WINDOW_FRAMES: int = 50        # PERCLOS 滑窗长度（帧）
+    FATIGUE_PERCLOS_THRESHOLD: float = 0.3 # PERCLOS 疲劳阈值
+    FATIGUE_YAWN_MIN_FRAMES: int = 8       # 连续多少帧张嘴才计 1 次哈欠
+    FATIGUE_ALERT_COOLDOWN: int = 60       # 两次疲劳告警最短间隔秒数
+    # ...已有配置...
+
     # 第三方 API
     AMAP_KEY: str = ""
 
