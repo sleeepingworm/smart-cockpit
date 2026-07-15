@@ -13,6 +13,25 @@ class Settings(BaseSettings):
     FATIGUE_PERCLOS_THRESHOLD: float = 0.3 # PERCLOS 疲劳阈值
     FATIGUE_YAWN_MIN_FRAMES: int = 8       # 连续多少帧张嘴才计 1 次哈欠
     FATIGUE_ALERT_COOLDOWN: int = 60       # 两次疲劳告警最短间隔秒数
+
+    # ============ Day10: 障碍物检测（YOLO） ============
+    # 模型权重路径（相对 backend/）；支持 .pt / .onnx / .engine
+    OBSTACLE_MODEL_PATH: str = "ai/ai_models/yolo26n.pt"
+    OBSTACLE_IMGSZ: int = 640          # 推理分辨率（小 = 快 + 准度略降）
+    OBSTACLE_CONF: float = 0.35        # 置信度阈值
+    OBSTACLE_IOU: float = 0.50         # NMS IoU 阈值
+    OBSTACLE_DEVICE: str = "cpu"       # 'cpu' / '0' / 'cuda:0'
+    OBSTACLE_HALF: bool = False        # FP16 半精度（GPU 才有意义）
+
+    # 类别白名单（逗号分隔的 COCO 英文类名）
+    # 空字符串 → 用驾驶风险默认集
+    # '*' → 全 80 类
+    OBSTACLE_CLASSES: str = ""
+
+    # 只对这些类触发告警（默认：行人+非机动车）
+    OBSTACLE_ALERT_CLASSES: str = "person,bicycle,motorcycle"
+    OBSTACLE_ALERT_FRAMES: int = 5      # 连续 N 帧命中同类才算有效
+    OBSTACLE_ALERT_COOLDOWN: int = 30   # 两次告警最少间隔秒数
     # ...已有配置...
 
     # 第三方 API

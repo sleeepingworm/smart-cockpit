@@ -21,6 +21,9 @@ from api.weather import router as weather_router
 from api.sensor import router as sensor_router, start_sensor_manager, stop_sensor_manager
 from api.fatigue import router as fatigue_router
 from ai.fatigue_detection import warm_up as fatigue_warm_up
+from api.obstacle import router as obstacle_router
+from ai.obstacle_detection import warm_up as obstacle_warm_up
+
 # ========== 应用生命周期 ==========
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,13 +34,7 @@ async def lifespan(app: FastAPI):
     # ========== 启动时执行 ==========
     print("=" * 50)
     print("[启动] 智慧驾舱AI API 正在启动...")
-    try:
-        fatigue_warm_up()
-        print("[启动] 疲劳检测模型预热完成")
-    except Exception as e:
-        print(f"[启动] 疲劳检测预热失败（不阻塞）: {e}")
 
-    app.include_router(fatigue_router)
     # 确保上传目录存在
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "faces"), exist_ok=True)
@@ -60,6 +57,20 @@ async def lifespan(app: FastAPI):
 
     # 启动传感器管理器（Day8）
     start_sensor_manager()
+
+    # 疲劳检测模型预热（Day9）
+    try:
+        fatigue_warm_up()
+        print("[启动] 疲劳检测模型预热完成")
+    except Exception as e:
+        print(f"[启动] 疲劳检测预热失败（不阻塞）: {e}")
+
+    # 障碍物检测模型预热（Day10）
+    try:
+        obstacle_warm_up()
+        print("[启动] 障碍物检测模型预热完成")
+    except Exception as e:
+        print(f"[启动] 障碍物预热失败（不阻塞）: {e}")
 
     print("[启动] 启动完成！")
     print("[启动] 访问 http://localhost:8000/docs 查看接口文档")
@@ -121,6 +132,8 @@ app.mount("/static", StaticFiles(directory=settings.UPLOAD_DIR), name="static")
 app.include_router(amap_router)
 app.include_router(weather_router)
 app.include_router(sensor_router)
+app.include_router(fatigue_router)
+app.include_router(obstacle_router)
 # ========== 启动入口 ==========
 if __name__ == "__main__":
     import uvicorn
