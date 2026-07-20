@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
     try:
         with Session(engine) as session:
             first_face = session.exec(
-                select(Face).where(Face.is_active == True, Face.is_deleted == False).limit(1)
+                select(Face).where(Face.is_active == True).limit(1)
             ).first()
         sample = os.path.join(settings.UPLOAD_DIR, first_face.file_path) if first_face else None
         face_warm_up(sample)
