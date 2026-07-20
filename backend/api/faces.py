@@ -55,6 +55,7 @@ async def upload_face(file: UploadFile = File(...)):
             "filename": new_filename,
             "original_name": file.filename,
             "url": file_url,
+            "file_path": f"faces/{new_filename}",  # 返回相对路径的file_path
             "size": len(content),
         },
     }

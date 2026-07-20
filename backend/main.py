@@ -23,6 +23,7 @@ from api.fatigue import router as fatigue_router
 from ai.fatigue_detection import warm_up as fatigue_warm_up
 from api.obstacle import router as obstacle_router
 from ai.obstacle_detection import warm_up as obstacle_warm_up
+from api.voice import router as voice_router
 
 # ========== 应用生命周期 ==========
 @asynccontextmanager
@@ -134,12 +135,13 @@ app.include_router(weather_router)
 app.include_router(sensor_router)
 app.include_router(fatigue_router)
 app.include_router(obstacle_router)
+app.include_router(voice_router)
 # ========== 启动入口 ==========
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         "main:app",          # 指向本文件里的app对象
         host="0.0.0.0",      # 监听所有网卡（同局域网手机也能访问）
-        port=8000,           # 端口号
+        port=8001,           # 端口号
         reload=True,         # 开发模式：代码改了自动重启
     )

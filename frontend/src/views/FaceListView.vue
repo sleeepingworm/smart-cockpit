@@ -25,9 +25,11 @@ const form = reactive({
   name: '',
   employee_id: '',
   image_url: '',
+  file_path: '',  // 新增file_path字段
 })
 const uploadUrl = ref('')
 const uploadFileName = ref('')
+const uploadFilePath = ref('')  // 保存文件物理路径
 
 // ========== 驾驶员选项 ==========
 const driverOptions = ref<User[]>([])
@@ -73,9 +75,12 @@ function beforeUpload(file: File) {
 async function customUpload(options: any) {
   try {
     const res = await faceApi.upload(options.file)
-    uploadUrl.value = res.data.url
+    // 保存完整URL，避免相对路径问题
+    uploadUrl.value = fullUrl(res.data.url)
     uploadFileName.value = res.data.filename
-    form.image_url = res.data.url
+    uploadFilePath.value = res.data.file_path  // 保存file_path
+    form.image_url = res.data.url  // 数据库仍存相对路径
+    form.file_path = res.data.file_path  // 保存file_path到表单
     ElMessage.success('图片上传成功')
     options.onSuccess(res)
   } catch (e) {
@@ -90,7 +95,9 @@ function handlePreview() {
 function handleRemove() {
   uploadUrl.value = ''
   uploadFileName.value = ''
+  uploadFilePath.value = ''
   form.image_url = ''
+  form.file_path = ''
 }
 
 // ========== 新增/编辑 ==========
@@ -101,8 +108,10 @@ function openCreate() {
   form.name = ''
   form.employee_id = ''
   form.image_url = ''
+  form.file_path = ''
   uploadUrl.value = ''
   uploadFileName.value = ''
+  uploadFilePath.value = ''
   dialogVisible.value = true
 }
 
@@ -113,7 +122,10 @@ async function openEdit(row: Face) {
   form.name = row.name
   form.employee_id = row.employee_id || ''
   form.image_url = row.image_url
-  uploadUrl.value = row.image_url
+  // 兼容处理：如果row没有file_path，从image_url反推
+  form.file_path = row.file_path || (row.image_url.match(/\/static\/(faces\/.+)/)?.[1] || '')
+  uploadUrl.value = fullUrl(row.image_url)  // 编辑时也显示完整URL
+  uploadFilePath.value = form.file_path  // 保存file_path
   dialogVisible.value = true
 }
 
@@ -122,13 +134,25 @@ async function submitForm() {
   if (!form.name) { ElMessage.warning('请输入姓名'); return }
   if (!form.image_url) { ElMessage.warning('请上传人脸图片'); return }
 
+  // 兼容处理：如果file_path为空，从image_url反推
+  if (!form.file_path && form.image_url) {
+    const match = form.image_url.match(/\/static\/(faces\/.+)/)
+    if (match) {
+      form.file_path = match[1]
+    } else {
+      ElMessage.warning('文件路径缺失，请重新上传图片'); 
+      return
+    }
+  }
+
   try {
     if (isEdit.value && editId.value) {
-      await faceApi.create({
+      await faceApi.update(editId.value, {
         user_id: form.user_id,
         name: form.name,
         employee_id: form.employee_id || undefined,
         image_url: form.image_url,
+        file_path: form.file_path,
       })
       ElMessage.success('更新成功')
     } else {
@@ -137,6 +161,7 @@ async function submitForm() {
         name: form.name,
         employee_id: form.employee_id || undefined,
         image_url: form.image_url,
+        file_path: form.file_path,
       })
       ElMessage.success('创建成功')
     }

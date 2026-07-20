@@ -144,6 +144,7 @@ async function captureAndVerify() {
 
       const res: any = await request.post('/auth/face-login', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000, // 人脸登录单独设置60秒超时，确保模型加载和比对有足够时间
       })
 
       // 登录成功

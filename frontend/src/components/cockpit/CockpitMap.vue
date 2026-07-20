@@ -12,6 +12,17 @@
         >
           <template #prefix><el-icon><Search /></el-icon></template>
         </el-input>
+
+        <el-button
+          circle
+          type="primary"
+          :loading="locating"
+          title="定位我的位置"
+          @click="locateMe"
+        >
+          <el-icon v-if="!locating"><Aim /></el-icon>
+        </el-button>
+
         <div v-if="location" class="loc-badge">
           <el-icon><LocationInformation /></el-icon>
           {{ location.city || '定位中...' }}
@@ -35,21 +46,28 @@
 <script setup lang="ts">
 import { ref, shallowRef, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, LocationInformation, MapLocation } from '@element-plus/icons-vue'
+import { Search, LocationInformation, MapLocation, Aim } from '@element-plus/icons-vue'
 import { useAmapLoader, hasAmapKey } from '@/composables/useAmapLoader'
 import request from '@/api/request'
+
+// 对外暴露当前城市（adcode + 名称），供天气卡等兄弟组件联动
+const emit = defineEmits<{
+  (e: 'city-change', payload: { adcode: string; city: string }): void
+}>()
 
 const hasKey = hasAmapKey()
 const mapEl = ref<HTMLDivElement | null>(null)
 const searchKeyword = ref('')
-const location = ref<{ city: string; center: [number, number] } | null>(null)
+const location = ref<{ city: string; adcode: string; center: [number, number] } | null>(null)
 const routeInfo = ref<{ distance: string; time: string } | null>(null)
+const locating = ref(false)
 
 // ⚠️ shallowRef 避免 Vue 深度追踪 AMap 内部对象（性能 + 内部循环引用报错）
 const map = shallowRef<any>(null)
 const autoComplete = shallowRef<any>(null)
 const driving = shallowRef<any>(null)
 let currentMarker: any = null
+let AMapRef: any = null
 
 onMounted(async () => {
   if (!hasKey) return
@@ -61,15 +79,21 @@ onMounted(async () => {
       'AMap.PlaceSearch',
       'AMap.Driving',
     ])
+    AMapRef = AMap
 
-    // 2. 自动定位（走后端代理）
+    // 2. 自动定位（走后端代理，IP 级别，仅用于初始中心点）
     let center: [number, number] = [116.404, 39.915]  // 默认北京
     try {
       const res: any = await request.get('/amap/locate')
       const data = res.data
       if (data?.center) {
         center = data.center
-        location.value = { city: data.city, center }
+        location.value = {
+          city: data.city,
+          adcode: data.adcode || '110000',
+          center,
+        }
+        emit('city-change', { adcode: data.adcode || '110000', city: data.city })
       }
     } catch {
       // 定位失败保持默认
@@ -94,7 +118,7 @@ onMounted(async () => {
       }),
     })
 
-    // 4. 搜索：AutoComplete → PlaceSearch → 定位到地点 → 规划路线
+    // 4. 搜索：AutoComplete -> PlaceSearch -> 定位到地点 -> 规划路线
     autoComplete.value = new AMap.AutoComplete({ city: '全国' })
     driving.value = new AMap.Driving({
       map: map.value,
@@ -102,10 +126,83 @@ onMounted(async () => {
       policy: (AMap as any).DrivingPolicy?.LEAST_TIME,
     })
 
+    // 5. 自动精确定位（浏览器 GPS/WiFi），静默执行不弹提示
+    locateMe(true)
+
   } catch (e: any) {
     ElMessage.error(`地图加载失败：${e.message}`)
   }
 })
+
+/**
+ * 浏览器精确定位：调用 Geolocation API 获取当前设备 GPS/WiFi 坐标
+ * 成功后移动地图中心、更新起点 Marker、刷新 location
+ */
+function locateMe(silent = false) {
+  if (!navigator.geolocation) {
+    if (!silent) ElMessage.warning('当前浏览器不支持定位功能')
+    return
+  }
+  if (!map.value || !AMapRef) {
+    if (!silent) ElMessage.warning('地图尚未加载完成')
+    return
+  }
+
+  locating.value = true
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      locating.value = false
+      const center: [number, number] = [pos.coords.longitude, pos.coords.latitude]
+
+      // 移动地图中心 + 放大
+      map.value.setZoomAndCenter(16, center)
+
+      // 更新起点 Marker
+      if (currentMarker) {
+        currentMarker.setPosition(center)
+      }
+
+      // 更新位置信息（逆地理编码获取城市名）
+      location.value = { city: '我的位置', adcode: '', center }
+      reverseGeocode(center)
+
+      if (!silent) ElMessage.success('已定位到你的位置')
+    },
+    (err) => {
+      locating.value = false
+      const tips: Record<number, string> = {
+        1: '定位被拒绝，请在浏览器设置中允许位置权限',
+        2: '位置不可用（可能未开启 GPS 或 WiFi）',
+        3: '定位超时，请重试',
+      }
+      // 静默模式下定位失败不弹框，保留 IP 定位的初始结果
+      if (!silent) ElMessage.error(tips[err.code] || `定位失败：${err.message}`)
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+  )
+}
+
+/**
+ * 逆地理编码：经纬度 -> 城市名
+ * 用高德 AMap.Geocoder 插件把坐标转成可读地址
+ */
+async function reverseGeocode(center: [number, number]) {
+  try {
+    const AMap = await useAmapLoader(['AMap.Geocoder'])
+    const geocoder = new AMap.Geocoder()
+    geocoder.getAddress(center, (status: string, result: any) => {
+      if (status === 'complete' && result.regeocode) {
+        const addr = result.regeocode.addressComponent
+        const city = addr.city || addr.province || '当前位置'
+        const adcode = addr.adcode || ''
+        location.value = { city, adcode, center }
+        if (adcode) emit('city-change', { adcode, city })
+      }
+    })
+  } catch {
+    // 逆地理失败不影响定位本身
+  }
+}
 
 async function handleSearch() {
   if (!searchKeyword.value || !autoComplete.value || !map.value) return

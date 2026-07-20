@@ -43,9 +43,7 @@ async def face_login(
             .join(User, Face.user_id == User.id)
             .where(
                 Face.is_active == True,
-                Face.is_deleted == False,
                 User.is_active == True,
-                User.is_deleted == False,
                 User.role == "driver",
             )
         )

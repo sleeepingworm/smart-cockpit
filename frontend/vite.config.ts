@@ -4,9 +4,13 @@ import { fileURLToPath, URL } from 'node:url'      // ← 新增
 
 export default defineConfig({
   plugins: [vue()],
-  resolve: {                                        // ← 新增resolve配置
+  resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
+  },
+  server: {
+    port: 5173,
+    strictPort: true,  // 端口被占用时直接报错，不漂移到其他端口
   },
 })

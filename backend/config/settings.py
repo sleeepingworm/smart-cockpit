@@ -37,6 +37,21 @@ class Settings(BaseSettings):
     # 第三方 API
     AMAP_KEY: str = ""
 
+    # ============ Day11: 讯飞星火语音（ASR + TTS） ============
+    XF_APP_ID: str = ""
+    XF_API_KEY: str = ""
+    XF_API_SECRET: str = ""
+
+    # ============ Day11: 阿里云百炼 LLM ============
+    LLM_API_KEY: str = ""
+    LLM_APP_ID: str = ""
+
+    # 音频/资源完整 URL 前缀（部署到公网/反代时填，开发环境留空自动用 request.base_url）
+    SERVER_URL: str = ""
+
+    # 语音输出目录
+    VOICES_DIR: str = "uploads/voices"
+
     # 传感器
     SENSOR_ENABLED: bool = False
     SENSOR_PORT: str = "COM3"

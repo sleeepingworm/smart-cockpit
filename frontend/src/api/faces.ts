@@ -6,6 +6,7 @@ export interface Face {
   name: string
   employee_id: string | null
   image_url: string
+  file_path: string  // 新增file_path字段
   is_active: boolean
   created_at: string
 }
@@ -16,12 +17,14 @@ export const faceApi = {
   upload: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return request.post<null, { code: number; data: { url: string; filename: string } }>(
+    return request.post<null, { code: number; data: { url: string; filename: string; file_path: string } }>(
       '/faces/upload', formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     )
   },
-  create: (data: { user_id: number; name: string; employee_id?: string; image_url: string }) =>
+  create: (data: { user_id: number; name: string; employee_id?: string; image_url: string; file_path: string }) =>
     request.post('/faces/', data),
+  update: (id: number, data: { user_id: number; name: string; employee_id?: string; image_url: string; file_path?: string }) =>
+    request.put(`/faces/${id}`, data),
   remove: (id: number) => request.delete(`/faces/${id}`),
 }

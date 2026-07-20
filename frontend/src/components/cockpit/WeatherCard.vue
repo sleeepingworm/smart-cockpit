@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { LocationInformation } from '@element-plus/icons-vue'
 import request from '@/api/request'
 
@@ -46,12 +46,18 @@ interface Weather {
   forecast: Array<{ date: string; dayweather: string; daytemp: string; nighttemp: string }>
 }
 
+const props = defineProps<{
+  adcode: string
+}>()
+
 const data = ref<Weather | null>(null)
 let timer: number | null = null
 
 async function fetchWeather() {
   try {
-    const res: any = await request.get('/weather/current', { params: { city: '110000' } })
+    const res: any = await request.get('/weather/current', {
+      params: { city: props.adcode || '110000' },
+    })
     data.value = res.data
   } catch {
     // 拦截器已经弹过错，不额外处理
@@ -67,6 +73,11 @@ function formatDay(dateStr: string) {
   if (days === 2) return '后天'
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
+
+// 城市切换时立即重拉
+watch(() => props.adcode, (v) => {
+  if (v) fetchWeather()
+})
 
 onMounted(() => {
   fetchWeather()

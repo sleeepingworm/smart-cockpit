@@ -9,6 +9,7 @@
 from __future__ import annotations
 import os
 import logging
+import threading
 from pathlib import Path
 from typing import Optional
 import numpy as np
@@ -66,6 +67,7 @@ class FatigueDetector:
     warm_up() 用零数组跑一次推理，触发内部缓存分配。
     """
     _instance: Optional["FatigueDetector"] = None
+    _lock = threading.Lock()
 
     def __init__(self):
         self._detector = None
@@ -79,23 +81,28 @@ class FatigueDetector:
         return cls._instance
 
     def _lazy_load(self):
+        # 双重检查 + 加锁，防止多个 WS 帧并发触发重复加载
         if self._loaded:
             return
-        try:
-            import dlib   # type: ignore
-        except ImportError as e:
-            raise RuntimeError("dlib 未安装，请 uv add dlib-bin") from e
+        with self._lock:
+            if self._loaded:
+                return
+            logger.info("[fatigue] 开始加载 dlib 模型...")
+            try:
+                import dlib   # type: ignore
+            except ImportError as e:
+                raise RuntimeError("dlib 未安装，请 uv add dlib-bin") from e
 
-        if not MODEL_PATH.exists():
-            raise RuntimeError(
-                f"dlib 68 点模型不存在: {MODEL_PATH}\n"
-                "请从 http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2 下载并解压。"
-            )
+            if not MODEL_PATH.exists():
+                raise RuntimeError(
+                    f"dlib 68 点模型不存在: {MODEL_PATH}\n"
+                    "请从 http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2 下载并解压。"
+                )
 
-        self._detector = dlib.get_frontal_face_detector()
-        self._predictor = dlib.shape_predictor(str(MODEL_PATH))
-        self._loaded = True
-        logger.info("[fatigue] dlib 模型加载完成")
+            self._detector = dlib.get_frontal_face_detector()
+            self._predictor = dlib.shape_predictor(str(MODEL_PATH))
+            self._loaded = True
+            logger.info("[fatigue] dlib 模型加载完成")
 
     def warm_up(self):
         """启动预热：用 320x240 零数组跑一次，激活内部内存分配"""

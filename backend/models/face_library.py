@@ -32,5 +32,6 @@ class FaceResp(SQLModel):
     name: str
     employee_id: str | None
     image_url: str
+    file_path: str  # 新增file_path字段，编辑时需要
     is_active: bool
     created_at: datetime

@@ -284,6 +284,10 @@ function drawOverlay(boxes: Box[]) {
   if (!ctx) return
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
+  // 修复镜像文字反转：坐标系变换，负负得正
+  ctx.save()
+  ctx.setTransform(-1, 0, 0, 1, canvas.width, 0)
+
   ctx.lineWidth = 2
   ctx.font = '14px system-ui, -apple-system, sans-serif'
 
@@ -301,6 +305,8 @@ function drawOverlay(boxes: Box[]) {
     ctx.fillStyle = '#000'
     ctx.fillText(label, b.x1 + 4, b.y1 - 4)
   }
+
+  ctx.restore()
 }
 
 // ============ 清理 ============

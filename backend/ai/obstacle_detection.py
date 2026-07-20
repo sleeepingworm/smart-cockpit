@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import time
+import threading
 from pathlib import Path
 from typing import List, Optional
 
@@ -31,9 +32,9 @@ _DEFAULT_DRIVING_CLASSES = {
 def _parse_classes(csv: str) -> Optional[List[str]]:
     """
     解析 .env 中的类别配置：
-      空字符串 → 返回默认驾驶集
-      '*'      → 返回 None（表示不过滤，全 80 类）
-      'a,b,c'  → 返回 ['a', 'b', 'c']（小写去空格）
+      空字符串 -> 返回默认驾驶集
+      '*'      -> 返回 None（表示不过滤，全 80 类）
+      'a,b,c'  -> 返回 ['a', 'b', 'c']（小写去空格）
     """
     csv = (csv or "").strip()
     if not csv:
@@ -48,11 +49,12 @@ class ObstacleDetector:
     Ultralytics YOLO 单例。第一次 detect() 时才加载模型（~500MB torch 依赖）。
     """
     _instance: Optional["ObstacleDetector"] = None
+    _lock = threading.Lock()
 
     def __init__(self):
         self._model = None
         self._class_names: dict[int, str] = {}
-        # 反向映射：class_name (lower) → class_id
+        # 反向映射：class_name (lower) -> class_id
         self._name_to_id: dict[str, int] = {}
         # 白名单 class_id 列表（None 表示不过滤）
         self._active_ids: Optional[List[int]] = None
@@ -64,44 +66,48 @@ class ObstacleDetector:
         return cls._instance
 
     def _lazy_load(self):
+        # 双重检查 + 加锁，防止多个 WS 帧并发触发重复加载
         if self._model is not None:
             return
+        with self._lock:
+            if self._model is not None:
+                return
+            logger.info("[obstacle] 开始加载 YOLO 模型...")
+            try:
+                from ultralytics import YOLO  # type: ignore
+            except ImportError as e:
+                raise RuntimeError("ultralytics 未安装，请 uv add ultralytics") from e
 
-        try:
-            from ultralytics import YOLO  # type: ignore
-        except ImportError as e:
-            raise RuntimeError("ultralytics 未安装，请 uv add ultralytics") from e
+            model_path = Path(settings.OBSTACLE_MODEL_PATH)
+            if not model_path.is_absolute():
+                # 相对路径基于 backend/ 目录
+                model_path = Path(__file__).parent.parent / settings.OBSTACLE_MODEL_PATH
+            if not model_path.exists():
+                raise RuntimeError(
+                    f"YOLO 模型不存在: {model_path}\n"
+                    "请下载 yolo26n.pt 到 ai/ai_models/，或修改 OBSTACLE_MODEL_PATH"
+                )
 
-        model_path = Path(settings.OBSTACLE_MODEL_PATH)
-        if not model_path.is_absolute():
-            # 相对路径基于 backend/ 目录
-            model_path = Path(__file__).parent.parent / settings.OBSTACLE_MODEL_PATH
-        if not model_path.exists():
-            raise RuntimeError(
-                f"YOLO 模型不存在: {model_path}\n"
-                "请下载 yolo26n.pt 到 ai/ai_models/，或修改 OBSTACLE_MODEL_PATH"
+            logger.info(f"[obstacle] 加载 YOLO 模型 {model_path.name} ...")
+            self._model = YOLO(str(model_path))
+
+            # 从模型里取 class_id -> class_name 映射
+            # Ultralytics 里 model.names 是 dict[int,str]
+            self._class_names = dict(self._model.names)  # type: ignore
+            self._name_to_id = {v.lower(): k for k, v in self._class_names.items()}
+
+            # 解析白名单
+            active_names = _parse_classes(settings.OBSTACLE_CLASSES)
+            if active_names is None:
+                self._active_ids = None
+            else:
+                self._active_ids = sorted({
+                    self._name_to_id[n] for n in active_names if n in self._name_to_id
+                })
+            logger.info(
+                f"[obstacle] 模型加载完成，共 {len(self._class_names)} 类；"
+                f"启用 {len(self._active_ids) if self._active_ids else '全部'} 类白名单"
             )
-
-        logger.info(f"[obstacle] 加载 YOLO 模型 {model_path.name} ...")
-        self._model = YOLO(str(model_path))
-
-        # 从模型里取 class_id → class_name 映射
-        # Ultralytics 里 model.names 是 dict[int,str]
-        self._class_names = dict(self._model.names)  # type: ignore
-        self._name_to_id = {v.lower(): k for k, v in self._class_names.items()}
-
-        # 解析白名单
-        active_names = _parse_classes(settings.OBSTACLE_CLASSES)
-        if active_names is None:
-            self._active_ids = None
-        else:
-            self._active_ids = sorted({
-                self._name_to_id[n] for n in active_names if n in self._name_to_id
-            })
-        logger.info(
-            f"[obstacle] 模型加载完成，共 {len(self._class_names)} 类；"
-            f"启用 {len(self._active_ids) if self._active_ids else '全部'} 类白名单"
-        )
 
     def warm_up(self):
         """启动预热：320x320 零数组预测一次，触发权重加载 + 内核编译"""

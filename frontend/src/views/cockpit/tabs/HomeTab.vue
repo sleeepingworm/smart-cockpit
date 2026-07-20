@@ -2,12 +2,12 @@
   <div class="home-tab">
     <!-- 左：地图 -->
     <div class="col-left">
-      <CockpitMap />
+      <CockpitMap @city-change="onCityChange" />
     </div>
 
     <!-- 右：天气 + 传感器 -->
     <div class="col-right">
-      <WeatherCard />
+      <WeatherCard :adcode="currentAdcode" />
       <div class="sensors">
         <SensorCard
           icon="🌡"
@@ -53,10 +53,18 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useSensor } from '@/composables/useSensor'
 import CockpitMap from '@/components/cockpit/CockpitMap.vue'
 import WeatherCard from '@/components/cockpit/WeatherCard.vue'
 import SensorCard from '@/components/cockpit/SensorCard.vue'
+
+// 当前城市 adcode，由地图定位结果驱动，默认北京
+const currentAdcode = ref('110000')
+
+function onCityChange(payload: { adcode: string; city: string }) {
+  if (payload.adcode) currentAdcode.value = payload.adcode
+}
 
 const { readings, source } = useSensor({ interval: 3000 })
 

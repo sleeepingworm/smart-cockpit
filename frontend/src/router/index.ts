@@ -43,7 +43,7 @@ const router = createRouter({
         { path: 'home',     name: 'CockpitHome',     component: () => import('@/views/cockpit/tabs/HomeTab.vue'),     meta: { title: '首页' } },
         { path: 'fatigue',  name: 'CockpitFatigue',  component: () => import('@/views/cockpit/tabs/FatigueTab.vue'), meta: { title: '疲劳检测' } },
         { path: 'obstacle', name: 'CockpitObstacle', component: () => import('@/views/cockpit/tabs/ObstacleTab.vue'), meta: { title: '障碍物检测' } },
-        { path: 'voice',    name: 'CockpitVoice',    component: () => import('@/views/cockpit/tabs/PlaceholderTab.vue'), meta: { title: '语音助手' } },
+        { path: 'voice',    name: 'CockpitVoice',    component: () => import('@/views/cockpit/tabs/VoiceTab.vue'), meta: { title: '语音助手' } },
         { path: 'profile',  name: 'CockpitProfile',  component: () => import('@/views/cockpit/tabs/PlaceholderTab.vue'), meta: { title: '个人中心' } },
       ],
     },

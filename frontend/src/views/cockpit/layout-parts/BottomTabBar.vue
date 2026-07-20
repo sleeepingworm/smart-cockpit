@@ -1,60 +1,95 @@
 <template>
-  <header class="top-bar">
-    <div class="brand">🚗 智慧驾舱 · 车机端</div>
-    <div class="right">
-      <span class="clock">{{ clock }}</span>
-      <el-dropdown v-if="driver.user" @command="onLogout">
-        <span class="user">{{ driver.user.full_name || driver.user.username }} ▾</span>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="logout">退出登录</el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-    </div>
-  </header>
+  <nav class="bottom-tab-bar">
+    <button
+      v-for="tab in tabs"
+      :key="tab.path"
+      class="tab-btn"
+      :class="{ active: activeTab === tab.path }"
+      @click="go(tab.path)"
+    >
+      <span class="tab-icon">{{ tab.icon }}</span>
+      <span class="tab-label">{{ tab.label }}</span>
+    </button>
+  </nav>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
-import { useDriverStore } from '@/stores/driver.ts'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
-const driver = useDriverStore()
+const route = useRoute()
 const router = useRouter()
-const clock = ref('')
-let timer: number | null = null
 
-function refresh() {
-  const d = new Date()
-  clock.value = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`
-}
-onMounted(() => {
-  refresh()
-  timer = window.setInterval(refresh, 1000)
-})
-onBeforeUnmount(() => {
-  if (timer) clearInterval(timer)
-})
+const tabs = [
+  { path: '/cockpit/home',     icon: '🏠', label: '首页' },
+  { path: '/cockpit/fatigue',  icon: '😴', label: '疲劳检测' },
+  { path: '/cockpit/obstacle', icon: '🚧', label: '障碍物检测' },
+  { path: '/cockpit/voice',    icon: '🎤', label: '语音助手' },
+  { path: '/cockpit/profile',  icon: '👤', label: '个人中心' },
+]
 
-function onLogout() {
-  driver.logout()
-  router.push('/cockpit/login')
+const activeTab = computed(() => route.path)
+
+function go(path: string) {
+  if (route.path !== path) {
+    router.push(path)
+  }
 }
 </script>
 
 <style scoped>
-.top-bar {
-  height: 56px;
-  padding: 0 20px;
+.bottom-tab-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--ck-bg-panel);
-  border-bottom: 1px solid var(--ck-border);
+  align-items: stretch;
+  height: 64px;
+  background: var(--ck-bg-panel, #131a35);
+  border-top: 1px solid var(--ck-border, #2d3556);
+  flex-shrink: 0;
 }
-.brand { font-size: 18px; font-weight: 600; }
-.right { display: flex; align-items: center; gap: 20px; }
-.clock { color: var(--ck-text-secondary); font-family: monospace; font-size: 14px; }
-.user { cursor: pointer; color: var(--ck-text-primary); }
+
+.tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  color: var(--ck-text-secondary, #8b95c9);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+  position: relative;
+  padding: 4px 0;
+}
+
+.tab-btn:hover {
+  color: var(--ck-text-primary, #eef2ff);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tab-btn.active {
+  color: var(--ck-accent, #4e7cff);
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--ck-accent, #4e7cff);
+  border-radius: 0 0 2px 2px;
+}
+
+.tab-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.tab-label {
+  font-size: 11px;
+  line-height: 1;
+}
 </style>
