@@ -11,6 +11,7 @@ from api.auth import router as auth_router
 from api.user import router as users_router
 from api.vehicles import router as vehicles_router
 from api.faces import router as faces_router
+from api.face import router as face_router  # 新增人脸识别功能接口
 from api.alerts import router as alerts_router
 from ai.face_recognition import warm_up as face_warm_up
 from sqlmodel import Session, select
@@ -106,6 +107,7 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(vehicles_router)
 app.include_router(faces_router)
+app.include_router(face_router)  # 新增人脸识别功能接口
 app.include_router(alerts_router)
 
 # ========== 测试接口 ==========
@@ -142,6 +144,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",          # 指向本文件里的app对象
         host="0.0.0.0",      # 监听所有网卡（同局域网手机也能访问）
-        port=8001,           # 端口号
+        port=8000,           # 端口号
         reload=True,         # 开发模式：代码改了自动重启
     )

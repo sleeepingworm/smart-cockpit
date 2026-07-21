@@ -16,13 +16,16 @@ dependencies = [
     "opencv-python==4.10.0.84",   # 稳定版 OpenCV，包含 Haar 级联 CascadeClassifier
     "dlib-bin>=19.24.99",         # dlib 预编译 Windows wheel（含68点人脸关键点，无需CMake编译）
     "numpy>=1.26.0,<2.3.0",
-    "deepface>=0.0.93",           # Day7 人脸识别：Facenet512 + 余弦距离
-    "tf-keras>=2.15.0",           # DeepFace 官方文档推荐搭配
+    "insightface>=0.7.3",         # 人脸识别：替换DeepFace，更轻量更快更准确
+    "onnxruntime>=1.16.3",        # InsightFace推理依赖
+    # "deepface>=0.0.93",           # Day7 人脸识别：Facenet512 + 余弦距离
+    # "tf-keras>=2.15.0",           # DeepFace 官方文档推荐搭配
     "pyserial>=3.5",              # Day8 STM32 串口传感器（可选，未装时自动 mock 降级）
     "ultralytics>=8.3",           # Day10 YOLO 多目标检测（COCO 80 类）
     "faster-whisper>=1.0",        # 备用 ASR（Day11 主用讯飞 IAT）
     "dashscope>=1.26.3",          # Day11 阿里云百炼 SDK：LLM 智能体
     "websocket-client>=1.8",      # Day11 讯飞 WebSocket 客户端（ASR IAT + TTS）
+    "onnxruntime-gpu>=1.27.0",
 ]
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"

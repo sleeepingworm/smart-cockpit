@@ -54,36 +54,36 @@ const router = createRouter({
 })
 
 // ============ 路由守卫 ============
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to, _from) => {
   const userStore = useUserStore()
   const driverStore = useDriverStore()
 
   // 公开页
   if (to.meta.public) {
-    if (to.path === '/login' && userStore.isLoggedIn) return next('/dashboard')
-    if (to.path === '/cockpit/login' && driverStore.isLoggedIn) return next('/cockpit/home')
-    return next()
+    if (to.path === '/login' && userStore.isLoggedIn) return '/dashboard'
+    if (to.path === '/cockpit/login' && driverStore.isLoggedIn) return '/cockpit/home'
+    return true
   }
 
   // 管理端页面
   if (to.meta.requireAdmin) {
     if (!userStore.isLoggedIn) {
       ElMessage.warning('请先登录')
-      return next('/login')
+      return '/login'
     }
-    return next()
+    return true
   }
 
   // 车机端页面
   if (to.meta.requireDriver) {
     if (!driverStore.isLoggedIn) {
       ElMessage.warning('请先刷脸登录')
-      return next('/cockpit/login')
+      return '/cockpit/login'
     }
-    return next()
+    return true
   }
 
-  next()
+  return true
 })
 
 router.afterEach((to) => {

@@ -12,5 +12,13 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,  // 端口被占用时直接报错，不漂移到其他端口
+    proxy: {
+      // 接口代理：所有/api开头的请求转发到后端8000端口
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
   },
 })

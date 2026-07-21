@@ -75,6 +75,48 @@
           {{ alertCount }} 次
         </el-descriptions-item>
       </el-descriptions>
+
+      <!-- 新增：人脸信息卡片 -->
+      <div class="face-info-card">
+        <div class="card-title" style="display: flex; align-items: center; justify-content: space-between;">
+          <span>👤 驾驶员信息</span>
+          <el-button 
+            size="small" 
+            type="primary" 
+            @click="updateFaceInfo"
+            :loading="updatingFaceInfo"
+            :disabled="!cameraOn"
+          >
+            立即识别
+          </el-button>
+        </div>
+        <el-descriptions :column="1" border size="small" class="face-stats">
+          <el-descriptions-item label="姓名">
+            <el-tag type="primary">{{ faceInfo?.name || '未识别' }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="年龄">
+            {{ faceInfo?.age || '--' }} 岁
+          </el-descriptions-item>
+          <el-descriptions-item label="性别">
+            {{ faceInfo?.gender || '--' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="识别置信度">
+            <div class="confidence-bar" v-if="faceInfo?.confidence !== undefined && faceInfo?.confidence !== null">
+              <div
+                class="confidence-fill"
+                :style="{ width: Math.max(0, Math.min(100, faceInfo!.confidence * 100)) + '%' }"
+              ></div>
+              <span class="confidence-text">{{ Math.round(Math.max(0, Math.min(100, faceInfo!.confidence * 100))) }}%</span>
+            </div>
+            <span v-else>--%</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="活体检测">
+            <el-tag :type="faceInfo?.is_live ? 'success' : 'danger'">
+              {{ faceInfo?.is_live ? '真实人脸' : '可能是照片' }}
+            </el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
     </div>
   </div>
 </template>
@@ -82,6 +124,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 const WS_URL = 'ws://127.0.0.1:8000/ws/fatigue'
 const SEND_INTERVAL_MS = 200
@@ -98,6 +141,17 @@ const ws = ref<WebSocket | null>(null)
 let sendTimer: number | null = null
 const alertCount = ref(0)
 const yawnFlashUntil = ref(0)  // 哈欠提示持续到时间戳
+
+// 新增：人脸信息
+const faceInfo = ref<{
+  name?: string
+  age?: number
+  gender?: string
+  confidence?: number
+  is_live?: boolean
+} | null>(null)
+// 新增：人脸信息更新loading状态
+const updatingFaceInfo = ref(false)
 
 interface Box { type: string; x1: number; y1: number; x2: number; y2: number; confidence: number }
 
@@ -277,6 +331,141 @@ function clearOverlay() {
   ctx?.clearRect(0, 0, overlayRef.value.width, overlayRef.value.height)
 }
 
+// 新增：获取人脸信息
+async function updateFaceInfo(showError: boolean = true) {
+  if (!videoRef.value) return
+  console.log('🔍 开始更新人脸信息...')
+  updatingFaceInfo.value = true
+  try {
+    // 截取当前帧
+    const v = videoRef.value
+    const c = document.createElement('canvas')
+    c.width = v.videoWidth
+    c.height = v.videoHeight
+    const ctx = c.getContext('2d')
+    if (!ctx) {
+      console.error('❌ 获取canvas上下文失败')
+      return
+    }
+    ctx.drawImage(v, 0, 0)
+    console.log('✅ 截图成功，准备上传...')
+
+    // 转换为Blob上传
+    const blob = await new Promise<Blob | null>((resolve) => {
+      c.toBlob(resolve, 'image/jpeg', 0.7)
+    })
+
+    if (!blob) {
+      console.error('❌ 转换Blob失败')
+      return
+    }
+    console.log(`✅ Blob大小：${Math.round(blob.size / 1024)}KB`)
+
+    const formData = new FormData()
+    formData.append('file', blob, 'frame.jpg')
+
+    // 串行调用：两个接口共用同一个 InsightFace 分析器，避免并发推理互相影响
+    // /detect 已统一转换年龄、性别、置信度等字段，直接作为属性数据源
+    console.log('🚀 开始调用人脸检测接口...')
+    let attrRes: { status: 'fulfilled'; value: any } | { status: 'rejected'; reason: unknown }
+    try {
+      const response = await axios.post('/api/face/detect', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      attrRes = { status: 'fulfilled', value: response }
+    } catch (reason) {
+      attrRes = { status: 'rejected', reason }
+    }
+
+    console.log('🚀 开始调用人脸搜索接口...')
+    let searchRes: { status: 'fulfilled'; value: any } | { status: 'rejected'; reason: unknown }
+    try {
+      const response = await axios.post('/api/face/verify/search', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      searchRes = { status: 'fulfilled', value: response }
+    } catch (reason) {
+      searchRes = { status: 'rejected', reason }
+    }
+
+    console.log('📩 接口返回结果：', { attrRes, searchRes })
+
+    // 处理返回结果
+    const info: any = {}
+    let attrNoFace = false   // 属性接口正常返回但没检测到人脸
+
+    // ---- 属性接口：补充年龄、性别和检测置信度 ----
+    if (attrRes.status === 'fulfilled') {
+      const attrData = attrRes.value.data?.data
+      const attr = Array.isArray(attrData) ? attrData[0] : attrData
+      console.log('✅ 属性接口返回：', attrRes.value.data)
+      if (attr) {
+        const age = Number(attr.age)
+        const confidence = Number(attr.det_score)
+        if (Number.isFinite(age) && age > 0) info.age = age
+        if (typeof attr.gender === 'string' && attr.gender.trim()) info.gender = attr.gender
+        if (Number.isFinite(confidence) && confidence > 0) info.confidence = confidence
+        console.log('👤 检测到人脸属性：', {
+          age: info.age,
+          gender: info.gender,
+          confidence: info.confidence
+        })
+      } else {
+        console.log('ℹ️ 属性接口未检测到人脸')
+        attrNoFace = true
+      }
+    } else {
+      console.error('❌ 属性接口调用失败：', attrRes.reason)
+    }
+
+    // ---- 搜索接口：决定姓名，并为置信度提供兜底 ----
+    let matchedName = ''
+    if (searchRes.status === 'fulfilled') {
+      console.log('✅ 搜索接口返回：', searchRes.value.data)
+      const match = searchRes.value.data?.data
+      if (match) {
+        info.name = match.name || '未识别'
+        matchedName = info.name
+        if (info.confidence === undefined) {
+          const similarity = Number(match.similarity)
+          info.confidence = Number.isFinite(similarity) ? similarity : 0
+        }
+        console.log('🔍 匹配到用户：', info.name)
+      } else {
+        console.log('ℹ️ 搜索接口未匹配到人脸')
+        info.name = '未识别'
+      }
+    } else {
+      console.error('❌ 搜索接口调用失败：', searchRes.reason)
+    }
+
+    // 简易活体判断（基于检测置信度，真实场景可调用专门的活体接口）
+    info.is_live = (info.confidence || 0) > 0.8
+
+    faceInfo.value = Object.keys(info).length > 0 ? info : null
+    console.log('✅ 最终人脸信息：', faceInfo.value)
+
+    // ---- 统一提示：以搜索结果为主结论 ----
+    if (showError) {
+      if (matchedName) {
+        ElMessage.success(`识别成功：${matchedName}`)
+      } else if (attrNoFace && !info.name) {
+        ElMessage.info('未检测到人脸，请正对摄像头')
+      } else if (searchRes.status !== 'fulfilled') {
+        ElMessage.error('人脸搜索失败')
+      }
+    }
+
+  } catch (e) {
+    console.error('💥 人脸信息获取失败：', e)
+    if (showError) {
+      ElMessage.error('识别失败，请重试')
+    }
+  } finally {
+    updatingFaceInfo.value = false
+  }
+}
+
 function drawOverlay(boxes: Box[]) {
   const canvas = overlayRef.value
   if (!canvas) return
@@ -294,16 +483,25 @@ function drawOverlay(boxes: Box[]) {
   for (const b of boxes) {
     const color = COLOR_MAP[b.type] || '#fff'
     ctx.strokeStyle = color
-    ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1)
+    
+    // 修复：镜像转换x坐标
+    // 原坐标是左->右，翻转后变成右->左，所以x1和x2互换，再用宽度减去
+    const x1 = canvas.width - b.x2
+    const x2 = canvas.width - b.x1
+    const y1 = b.y1
+    const y2 = b.y2
+    
+    // 用转换后的坐标画框
+    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
 
-    // 标签背景 + 文字
+    // 标签背景 + 文字（也要用转换后的x坐标）
     const label = `${LABEL_MAP[b.type] || b.type} ${(b.confidence * 100).toFixed(0)}%`
     const textW = ctx.measureText(label).width
     const tagH = 18
     ctx.fillStyle = color
-    ctx.fillRect(b.x1, b.y1 - tagH, textW + 8, tagH)
+    ctx.fillRect(x1, y1 - tagH, textW + 8, tagH)
     ctx.fillStyle = '#000'
-    ctx.fillText(label, b.x1 + 4, b.y1 - 4)
+    ctx.fillText(label, x1 + 4, y1 - 4)
   }
 
   ctx.restore()
@@ -417,6 +615,53 @@ onBeforeUnmount(() => {
   transition: width 0.3s, background 0.3s;
 }
 .perclos-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: monospace;
+  font-size: 12px;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+/* 人脸信息卡片样式 */
+.face-info-card {
+  background: var(--ck-bg-panel);
+  border-radius: 12px;
+  border: 1px solid var(--ck-border);
+  padding: 12px;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ck-text-primary);
+  margin-bottom: 12px;
+  text-align: center;
+}
+.face-stats {
+  background: transparent;
+}
+.face-stats :deep(.el-descriptions__label),
+.face-stats :deep(.el-descriptions__content) {
+  background: var(--ck-bg-panel);
+  color: var(--ck-text-primary);
+  border-color: var(--ck-border);
+}
+.confidence-bar {
+  position: relative;
+  height: 20px;
+  background: var(--ck-bg-elevated);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.confidence-fill {
+  height: 100%;
+  background: #67C23A;
+  transition: width 0.3s;
+}
+.confidence-text {
   position: absolute;
   inset: 0;
   display: flex;

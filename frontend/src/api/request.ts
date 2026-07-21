@@ -5,7 +5,7 @@ import { useDriverStore } from '@/stores/driver'
 import router from '@/router'
 
 const request = axios.create({
-  baseURL: 'http://127.0.0.1:8001',
+  baseURL: 'http://127.0.0.1:8000',
   timeout: 30000, // 30秒超时，给人脸识别足够的处理时间
 })
 
